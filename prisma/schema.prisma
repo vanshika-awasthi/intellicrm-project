@@ -1,0 +1,353 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+//////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////
+
+enum UserRole {
+  admin
+  manager
+  employee
+}
+
+enum ContactType {
+  lead
+  prospect
+  customer
+}
+
+enum OppStage {
+  lead
+  qualified
+  proposal
+  closed_won
+  closed_lost
+}
+
+enum ActivityType {
+  email
+  call
+  note
+  meeting
+  stage_change
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum FieldType {
+  text
+  number
+  date
+  boolean
+  select
+}
+
+enum PlanType {
+  free
+  pro
+  enterprise
+}
+
+//////////////////////////////////////////////////
+// COMPANY (TENANT ROOT)
+//////////////////////////////////////////////////
+
+model Company {
+  id         String   @id @default(uuid())
+  companyId  String   @unique
+  name       String
+  plan       PlanType @default(free)
+  settings   Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users         User[]
+  contacts      Contact[]
+  opportunities Opportunity[]
+  tickets       Ticket[]
+  workflows     WorkflowRule[]
+  customFields  CustomFieldDefinition[]
+
+  activities    ActivityLog[]   // ✅ ADD THIS
+  dashboards    ReportDashboard[]
+  campaigns     Campaign[]
+  jobs          JobQueue[]
+}
+
+//////////////////////////////////////////////////
+// USERS
+//////////////////////////////////////////////////
+
+model User {
+  id            String   @id @default(uuid())
+  companyId     String
+  employeeId    String
+  passwordHash  String
+  role          UserRole @default(employee)
+  fullName      String?
+  emailEnc      String?
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company       Company  @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  contactsAssigned       Contact[]      @relation("AssignedContacts")
+  opportunitiesAssigned  Opportunity[]  @relation("AssignedOpportunities")
+  ticketsAssigned        Ticket[]       @relation("AssignedTickets")
+
+  activities             ActivityLog[]  // ✅ ADD THIS
+  dashboards             ReportDashboard[]
+
+  @@unique([companyId, employeeId])
+}
+
+//////////////////////////////////////////////////
+// CONTACTS
+//////////////////////////////////////////////////
+
+model Contact {
+  id           String      @id @default(uuid())
+  companyId    String
+  type         ContactType @default(lead)
+  name         String
+  email        String?
+  phone        String?
+  companyName  String?
+  jobTitle     String?
+  leadScore    Int         @default(0)
+  assignedTo   String?
+  customFields Json        @default("{}")
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  company      Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  assignedUser User?   @relation("AssignedContacts", fields: [assignedTo], references: [id])
+
+  opportunities Opportunity[]
+  activities    ActivityLog[]
+  tickets       Ticket[]
+}
+
+//////////////////////////////////////////////////
+// OPPORTUNITIES
+//////////////////////////////////////////////////
+
+model Opportunity {
+  id             String   @id @default(uuid())
+  companyId      String
+  contactId      String?
+  assignedTo     String?
+  title          String
+  stage          OppStage @default(lead)
+  value          Float    @default(0)
+  probability    Int      @default(0)
+  position       Int      @default(0)
+  expectedClose  DateTime?
+  notes          String?
+  customFields   Json     @default("{}")
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company        Company  @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  contact        Contact? @relation(fields: [contactId], references: [id])
+  assignedUser   User?    @relation("AssignedOpportunities", fields: [assignedTo], references: [id])
+
+  activities     ActivityLog[]
+}
+
+//////////////////////////////////////////////////
+// ACTIVITY LOGS
+//////////////////////////////////////////////////
+
+model ActivityLog {
+  id            String       @id @default(uuid())
+  companyId     String
+  contactId     String?
+  opportunityId String?
+  performedBy   String?
+  type          ActivityType
+  subject       String
+  body          String?
+  metadata      Json         @default("{}")
+  createdAt     DateTime     @default(now())
+
+  company       Company      @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  contact       Contact?     @relation(fields: [contactId], references: [id])
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  user          User?        @relation(fields: [performedBy], references: [id])
+}
+
+//////////////////////////////////////////////////
+// TICKETS (SUPPORT SYSTEM)
+//////////////////////////////////////////////////
+
+model Ticket {
+  id            String         @id @default(uuid())
+  companyId     String
+  contactId     String?
+  assignedTo    String?
+  createdBy     String?
+  title         String
+  description   String?
+  status        TicketStatus   @default(open)
+  priority      TicketPriority @default(medium)
+  resolvedAt    DateTime?
+  dueAt         DateTime?
+  customFields  Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  company       Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  contact       Contact? @relation(fields: [contactId], references: [id])
+  assignedUser  User? @relation("AssignedTickets", fields: [assignedTo], references: [id])
+}
+
+//////////////////////////////////////////////////
+// CUSTOM FIELDS
+//////////////////////////////////////////////////
+
+model CustomFieldDefinition {
+  id          String   @id @default(uuid())
+  companyId   String
+  entity      String
+  fieldKey    String
+  fieldLabel  String
+  fieldType   FieldType @default(text)
+  options     Json      @default("[]")
+  isRequired  Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  company     Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@unique([companyId, entity, fieldKey])
+}
+
+//////////////////////////////////////////////////
+// WORKFLOWS
+//////////////////////////////////////////////////
+
+model WorkflowRule {
+  id         String   @id @default(uuid())
+  companyId  String
+  name       String
+  entity     String
+  triggerOn  String
+  conditions Json     @default("[]")
+  actions    Json     @default("[]")
+  isActive   Boolean  @default(true)
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  company    Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+// NATIVE JOB QUEUE (BACKGROUND WORKERS)
+//////////////////////////////////////////////////
+
+model JobQueue {
+  id         String   @id @default(uuid())
+  companyId  String
+  type       String   
+  payload    Json     @default("{}")
+  status     String   @default("pending") // pending, processing, completed, failed
+  error      String?
+  runAt      DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+// SALES & MARKETING (CAMPAIGNS)
+//////////////////////////////////////////////////
+
+model Campaign {
+  id             String    @id @default(uuid())
+  companyId      String
+  name           String
+  type           String    @default("email")
+  status         String    @default("active")
+  
+  budget         Float     @default(0)
+  spent          Float     @default(0)
+  roi            Float     @default(0)
+  
+  expectedLeads  Int       @default(0)
+  generatedLeads Int       @default(0)
+  
+  startDate      DateTime?
+  endDate        DateTime?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company        Company   @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+// REPORTING & ANALYTICS
+//////////////////////////////////////////////////
+
+model ReportDashboard {
+  id          String   @id @default(uuid())
+  companyId   String
+  ownerId     String?  
+  name        String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  user        User?    @relation(fields: [ownerId], references: [id])
+  widgets     DashboardWidget[]
+}
+
+model DashboardWidget {
+  id              String   @id @default(uuid())
+  dashboardId     String
+  type            String   // 'bar', 'line', 'pie', 'kpi_card'
+  metric          String   // 'sales_performance', 'revenue_forecast', 'team_productivity'
+  title           String
+  
+  config          Json     @default("{}") 
+  refreshRateMode String   @default("realtime") 
+
+  positionX       Int      @default(0)
+  positionY       Int      @default(0)
+  width           Int      @default(2)
+  height          Int      @default(2)
+
+  dashboard       ReportDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+}
