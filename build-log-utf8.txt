@@ -1,0 +1,65 @@
+﻿
+> app@0.1.0 build
+> next build
+
+node.exe : ΓÜá Warning: Next.js inferred your 
+workspace root, but it may not be correct.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Γ 
+   Üá Warning: Ne...not be correct.:String) [  
+  ], RemoteException
+    + FullyQualifiedErrorId : NativeCommandErr 
+   or
+ 
+ We detected multiple lockfiles and selected 
+the directory of 
+C:\Users\karti\package-lock.json as the root 
+directory.
+ To silence this warning, set `turbopack.root` 
+in your Next.js config, or consider removing 
+one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-referenc
+e/config/next-config-js/turbopack#root-director
+y for more information.
+ Detected additional lockfiles: 
+   * C:\Users\karti\Downloads\intellicrm_capsto
+ne\intellicrm-master\package-lock.json
+   * C:\Users\karti\Downloads\intellicrm_capsto
+ne\package-lock.json
+   * C:\Users\karti\Downloads\pnpm-lock.yaml
+
+Γû▓ Next.js 16.2.1 (Turbopack)
+- Environments: .env
+
+ΓÜá The "middleware" file convention is 
+deprecated. Please use "proxy" instead. Learn 
+more: https://nextjs.org/docs/messages/middlewa
+re-to-proxy
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 2.8s
+  Running TypeScript ...
+Failed to type check.
+
+./app/auth/layout.tsx:10:45
+Type error: Property 'isRestoring' does not 
+exist on type 'AuthState'.
+
+  [90m 8 |[0m   [36mconst[0m router      = 
+useRouter();
+  [90m 9 |[0m   [36mconst[0m accessToken = 
+useAuthStore((s) => s.accessToken);
+[31m[1m>[0m [90m10 |[0m   [36mconst[0m 
+isRestoring = useAuthStore((s) => 
+s.isRestoring);
+  [90m   |[0m                                
+             [31m[1m^[0m
+  [90m11 |[0m  
+  [90m12 |[0m   useEffect(() => {
+  [90m13 |[0m     [36mif[0m (!isRestoring 
+&& accessToken) {
+Next.js build worker exited with code: 1 and 
+signal: null
